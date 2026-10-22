@@ -81,6 +81,16 @@ const apply = () => {
     changed = true;
   }
 
+  // The sidebar header reads "Home Assistant" on the Home dashboard. In the
+  // Ukrainian profile it should name the page, not the product.
+  const sidebar = deep('ha-sidebar')[0];
+  const sidebarTitle = sidebar?.shadowRoot?.querySelector('.title');
+  if (sidebarTitle) {
+    const onHome = location.pathname.startsWith('/dashboard-home');
+    const wanted = onHome ? (lang === 'uk' ? 'Головна' : 'Home Assistant') : null;
+    if (wanted && setText(sidebarTitle, wanted)) changed = true;
+  }
+
   // The page header. Edit mode shows the dashboard title here; a view without
   // tabs shows the view title. The path tells which one it is.
   const parts = location.pathname.split('/').filter(Boolean);
