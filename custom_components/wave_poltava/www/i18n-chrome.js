@@ -28,14 +28,7 @@ const TITLES = {
   'power-safety': { en: 'Power & Safety', uk: 'Живлення та безпека' },
 };
 
-// The dashboard chrome is Ukrainian even when the Home Assistant profile is
-// English: the cards, the view names and the reason rows are Ukrainian, so a
-// lone English "Home" above them reads as a fault. Set FORCE_UK to false to
-// follow the profile language again.
-const FORCE_UK = true;
-
 const langOf = () => {
-  if (FORCE_UK) return 'uk';
   const root = document.querySelector('home-assistant');
   const raw = (root && root.hass && root.hass.language) || document.documentElement.lang || 'en';
   return String(raw).toLowerCase().startsWith('uk') ? 'uk' : 'en';
