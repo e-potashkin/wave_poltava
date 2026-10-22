@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/wave-icon.png" width="96" alt="Wave Poltava"></p>
+
 # Wave Poltava
 
 Air-raid monitor for Poltava oblast in one Home Assistant integration: the
