@@ -67,6 +67,11 @@ The card has one frontend dependency: `custom:multiple-logbook-card` from
 [logbook-card](https://github.com/royto/logbook-card). Install it with HACS. The
 other two bundled modules, `i18n-card` and `i18n-chrome`, have no dependency.
 
+The card has a visual editor. Add it from the card picker, then change the six
+entities, the period, the scroll and the rail thickness or opacity. The default
+config already uses the six `air_wave` sensors, so a card added from the picker
+works at once.
+
 ## Install
 
 ### HACS, as a custom repository

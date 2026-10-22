@@ -329,11 +329,236 @@ function areasOf(text) {
   return '';
 }
 
+// ---------------------------------------------------------------------------
+// Editor
+//
+// A card added from the picker starts with getStubConfig(): the six standard
+// Wave Poltava entities and the rail settings. The editor then changes the
+// entity ids, the period and the rail without YAML.
+
+const EDITOR_TAG = 'wave-divider-card-editor';
+
+const DEFAULT_IDS = {
+  wave: 'sensor.air_wave_local',
+  drone: 'sensor.air_wave_label_drone',
+  ballistic: 'sensor.air_wave_label_ballistic',
+  cruise: 'sensor.air_wave_label_cruise',
+  gab: 'sensor.air_wave_label_gab',
+  other: 'sensor.air_wave_label',
+};
+
+const ROW_DEFAULTS = {
+  wave: {
+    state_map: [
+      { value: 'active', label: 'Тривога', icon: 'mdi:alert-octagon', icon_color: '#ff5c5c' },
+      { value: 'idle', label: 'Відбій', icon: 'mdi:shield-check', icon_color: '#44739e' },
+    ],
+    hidden_state: ['active', '—', 'unknown', 'unavailable'],
+  },
+  drone: {
+    state_map: [{ value: '*', icon: 'mdi:drone', icon_color: '#f5a623' }],
+    hidden_state: ['—', 'unknown', 'unavailable'],
+    minimal_duration: 60,
+  },
+  ballistic: {
+    state_map: [{ value: '*', icon: 'mdi:rocket-launch', icon_color: '#ff5252' }],
+    hidden_state: ['—', 'unknown', 'unavailable'],
+    minimal_duration: 60,
+  },
+  cruise: {
+    state_map: [{ value: '*', icon: 'mdi:rocket', icon_color: '#ff7043' }],
+    hidden_state: ['—', 'unknown', 'unavailable'],
+    minimal_duration: 60,
+  },
+  gab: {
+    state_map: [{ value: '*', icon: 'mdi:bomb', icon_color: '#ffa726' }],
+    hidden_state: ['—', 'unknown', 'unavailable'],
+    minimal_duration: 60,
+  },
+  other: {
+    state_map: [{ value: '*', icon: 'mdi:eye', icon_color: '#f5a623' }],
+    hidden_state: ['—', 'unknown', 'unavailable'],
+    minimal_duration: 60,
+  },
+};
+
+const EDITOR_SCHEMA = [
+  { name: 'wave', selector: { entity: { domain: 'sensor' } } },
+  { name: 'drone', selector: { entity: { domain: 'sensor' } } },
+  { name: 'ballistic', selector: { entity: { domain: 'sensor' } } },
+  { name: 'cruise', selector: { entity: { domain: 'sensor' } } },
+  { name: 'gab', selector: { entity: { domain: 'sensor' } } },
+  { name: 'other', selector: { entity: { domain: 'sensor' } } },
+  { name: 'hours_to_show', selector: { number: { min: 1, max: 168, step: 1, mode: 'box', unit_of_measurement: 'h' } } },
+  { name: 'scroll', selector: { boolean: {} } },
+  { name: 'rail_thickness', selector: { number: { min: 1, max: 8, step: 1, mode: 'box', unit_of_measurement: 'px' } } },
+  { name: 'rail_opacity', selector: { number: { min: 0, max: 1, step: 0.01, mode: 'box' } } },
+];
+
+const EDITOR_LABELS = {
+  wave: 'Хвиля (рядок active/idle)',
+  drone: 'БпЛА',
+  ballistic: 'Балістика',
+  cruise: 'Ракети',
+  gab: 'КАБ',
+  other: 'Інше повідомлення',
+  hours_to_show: 'Період, годин',
+  scroll: 'Прокрутка',
+  rail_thickness: 'Товщина лінії',
+  rail_opacity: 'Прозорість лінії',
+};
+
+function findEntity(hass, suffix, fallback) {
+  const ids = Object.keys((hass && hass.states) || {});
+  return ids.find((id) => id === fallback)
+    ?? ids.find((id) => id.endsWith(suffix))
+    ?? fallback;
+}
+
+function stubConfig(hass) {
+  const id = (suffix, fallback) => findEntity(hass, suffix, fallback);
+  const wave = id('air_wave_local', DEFAULT_IDS.wave);
+  return {
+    type: TAG,
+    hours_to_show: 24,
+    scroll: false,
+    date_format: 'HH:mm',
+    group_by_day: true,
+    show: { duration: false, start_date: true, end_date: false, icon: true, state: true, entity_name: false, separator: false },
+    no_event: 'Немає подій за цей період',
+    entities: [
+      { entity: wave, ...ROW_DEFAULTS.wave },
+      { entity: id('air_wave_label_drone', DEFAULT_IDS.drone), ...ROW_DEFAULTS.drone },
+      { entity: id('air_wave_label_ballistic', DEFAULT_IDS.ballistic), ...ROW_DEFAULTS.ballistic },
+      { entity: id('air_wave_label_cruise', DEFAULT_IDS.cruise), ...ROW_DEFAULTS.cruise },
+      { entity: id('air_wave_label_gab', DEFAULT_IDS.gab), ...ROW_DEFAULTS.gab },
+      { entity: id('air_wave_label', DEFAULT_IDS.other), ...ROW_DEFAULTS.other },
+    ],
+    divider: { entity: wave, state: 'idle', mode: 'rail', thickness: 2, opacity: 0.16 },
+  };
+}
+
+class WaveDividerCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    const style = document.createElement('style');
+    style.textContent = ':host{display:block}.intro{padding:4px 0 12px;color:var(--secondary-text-color);font-size:14px;line-height:1.4}';
+    this.shadowRoot.append(style);
+    this._form = null;
+  }
+
+  setConfig(config) {
+    this._config = config ?? {};
+    if (!this._form) this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._form) this._form.hass = hass;
+    else this._render();
+  }
+
+  _data() {
+    const config = this._config ?? {};
+    const rows = Array.isArray(config.entities) ? config.entities : [];
+    const entity = (needle, fallback) => {
+      const row = rows.find((item) => String(item.entity ?? '').includes(needle));
+      return row?.entity ?? fallback;
+    };
+    const generic = rows.find((item) => String(item.entity ?? '').endsWith('air_wave_label'));
+    return {
+      wave: config.divider?.entity ?? entity('air_wave_local', DEFAULT_IDS.wave),
+      drone: entity('air_wave_label_drone', DEFAULT_IDS.drone),
+      ballistic: entity('air_wave_label_ballistic', DEFAULT_IDS.ballistic),
+      cruise: entity('air_wave_label_cruise', DEFAULT_IDS.cruise),
+      gab: entity('air_wave_label_gab', DEFAULT_IDS.gab),
+      other: generic?.entity ?? DEFAULT_IDS.other,
+      hours_to_show: Number(config.hours_to_show ?? 24),
+      scroll: config.scroll === true,
+      rail_thickness: Number(config.divider?.thickness ?? 2),
+      rail_opacity: Number(config.divider?.opacity ?? 0.16),
+    };
+  }
+
+  _render() {
+    if (!this._hass || !this._config || this._form) return;
+    const intro = document.createElement('div');
+    intro.className = 'intro';
+    intro.textContent = 'Сутності Wave Poltava підставлені автоматично. Змініть їх, якщо перейменували.';
+    const form = document.createElement('ha-form');
+    form.hass = this._hass;
+    form.data = this._data();
+    form.schema = EDITOR_SCHEMA;
+    form.computeLabel = (schema) => EDITOR_LABELS[schema.name] ?? schema.name;
+    form.addEventListener('value-changed', (event) => {
+      event.stopPropagation();
+      this._changed(event.detail.value);
+    });
+    this.shadowRoot.append(intro, form);
+    this._form = form;
+  }
+
+  _changed(data) {
+    const config = this._config ?? {};
+    const rows = Array.isArray(config.entities) ? config.entities : [];
+    const prior = (needle) => rows.find((item) => String(item.entity ?? '').includes(needle)) ?? {};
+    const row = (needle, entity, defaults) => ({ ...defaults, ...prior(needle), entity });
+    const wave = data.wave || DEFAULT_IDS.wave;
+    const generic = rows.find((item) => String(item.entity ?? '').endsWith('air_wave_label')) ?? {};
+    const next = {
+      ...config,
+      type: TAG,
+      hours_to_show: Number(data.hours_to_show ?? 24),
+      scroll: data.scroll === true,
+      entities: [
+        row('air_wave_local', wave, ROW_DEFAULTS.wave),
+        row('air_wave_label_drone', data.drone || DEFAULT_IDS.drone, ROW_DEFAULTS.drone),
+        row('air_wave_label_ballistic', data.ballistic || DEFAULT_IDS.ballistic, ROW_DEFAULTS.ballistic),
+        row('air_wave_label_cruise', data.cruise || DEFAULT_IDS.cruise, ROW_DEFAULTS.cruise),
+        row('air_wave_label_gab', data.gab || DEFAULT_IDS.gab, ROW_DEFAULTS.gab),
+        { ...ROW_DEFAULTS.other, ...generic, entity: data.other || DEFAULT_IDS.other },
+      ],
+      divider: {
+        ...(config.divider ?? {}),
+        entity: wave,
+        state: config.divider?.state ?? 'idle',
+        mode: config.divider?.mode ?? 'rail',
+        thickness: Number(data.rail_thickness ?? 2),
+        opacity: Number(data.rail_opacity ?? 0.16),
+      },
+    };
+    this._config = next;
+    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: next }, bubbles: true, composed: true }));
+  }
+}
+
+if (!customElements.get(EDITOR_TAG)) customElements.define(EDITOR_TAG, WaveDividerCardEditor);
+
 function define() {
   const Base = customElements.get(BASE);
-  if (!Base || customElements.get(TAG)) return;
+  if (!Base) return;
+
+  window.customCards = window.customCards ?? [];
+  if (!window.customCards.some((card) => card.type === TAG)) {
+    window.customCards.push({
+      type: TAG,
+      name: 'Wave divider logbook',
+      description: 'The multiple logbook card with one rail and a caption per wave.',
+      preview: false,
+    });
+  }
+  if (customElements.get(TAG)) return;
 
   class WaveDividerCard extends Base {
+    static getStubConfig(hass) {
+      return stubConfig(hass);
+    }
+
+    static getConfigElement() {
+      return document.createElement(EDITOR_TAG);
+    }
+
     setConfig(config) {
       super.setConfig(config);
       this._divider = { ...DEFAULTS, ...(config.divider ?? {}) };
@@ -637,13 +862,6 @@ function define() {
   }
 
   customElements.define(TAG, WaveDividerCard);
-  window.customCards = window.customCards ?? [];
-  window.customCards.push({
-    type: TAG,
-    name: 'Wave divider logbook',
-    description: 'The multiple logbook card with one rail and a caption per wave.',
-    preview: false,
-  });
 }
 
 if (customElements.get(BASE)) define();
