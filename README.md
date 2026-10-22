@@ -72,6 +72,10 @@ entities, the period, the scroll and the rail thickness or opacity. The default
 config already uses the six `air_wave` sensors, so a card added from the picker
 works at once.
 
+In YAML the type must be `custom:wave-divider-card`. Home Assistant treats a
+bare `wave-divider-card` as a built-in type and stops with "Unknown type
+encountered". The card picker adds the `custom:` prefix itself.
+
 ## Install
 
 ### HACS, as a custom repository
