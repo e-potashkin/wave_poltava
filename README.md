@@ -76,6 +76,24 @@ In YAML the type must be `custom:wave-divider-card`. Home Assistant treats a
 bare `wave-divider-card` as a built-in type and stops with "Unknown type
 encountered". The card picker adds the `custom:` prefix itself.
 
+## Bubble popup
+
+1. Open the dashboard and press **Edit**.
+2. **Add card** → **Bubble Card** → **Pop-up**.
+3. Set **Hash** to `#air-wave`. Keep the other fields as they are.
+4. Press **Create pop-up**.
+5. The new popup opens in edit mode. Press the dashed **Add card** button
+   inside it.
+6. Choose **Wave divider logbook**.
+7. The visual editor opens with the six `air_wave` sensors already filled in.
+   Change nothing, or change the period and the rail.
+8. Press **Save** in the card editor, then **Save** the dashboard.
+9. To open the popup from the air tile, set its tap action to **Navigate** and
+   the path to `#air-wave`.
+
+The existing `#aerial-danger-activity` popup uses the same card. Open it in
+edit mode to change the card or its position.
+
 ## Install
 
 ### HACS, as a custom repository
@@ -116,30 +134,6 @@ The list lives in `const.py` (`LOCAL_AREAS`).
 **Моніторинг Полтавщина** channel. The integration reads the last twenty-odd
 posts, processes only a post id greater than the stored one, and keeps the line
 breaks the channel writes.
-
-## Tests
-
-```
-python3 tests/test_feed.py
-python3 tests/test_coordinator.py
-python3 tests/test_markers.py
-python3 tests/test_districts.py
-python3 tests/test_markers_flow.py
-python3 tests/test_tracker.py
-```
-
-The tests use no Home Assistant. They read a saved preview page, 67 real
-channel messages and the wave scenarios.
-
-## Limits
-
-- The preview page shows the last twenty-odd posts. A downtime longer than that
-  loses the posts in between, but the stored wave still resumes.
-- The parser follows the page markup. If Telegram changes the class names,
-  `feed.py` needs a new pattern. The feed sensor's `feed_error` attribute says
-  when the page stops parsing.
-- The card is a subclass of `logbook-card` and finds rows by the base card's
-  class names. A base-card update can break the rail and the captions.
 
 ## License
 
