@@ -12,6 +12,8 @@
 //   Watches the page and writes the title into:
 //     - <ha-tab-group-tab data-path="...">           the view tabs
 //     - #sidebar-panel-dashboard-home .item-text     the sidebar entry
+//     - hui-root .main-title                        the page header
+//       (edit mode shows the dashboard title there, not a tab)
 //   The element is only touched when its text differs, so the observer does not
 //   feed itself. A 1.5 s timer covers a language switch: HA redraws the sidebar
 //   without a DOM event this script can subscribe to first.
@@ -77,6 +79,21 @@ const apply = () => {
   if (side && sideText && side.textContent.trim() !== sideText) {
     side.textContent = sideText;
     changed = true;
+  }
+
+  // The page header. Edit mode shows the dashboard title here; a view without
+  // tabs shows the view title. The path tells which one it is.
+  const parts = location.pathname.split('/').filter(Boolean);
+  const dashboardKey = parts[0];
+  const viewKey = parts[1];
+  const editing = location.search.includes('edit');
+  const headerKey = editing ? dashboardKey : (viewKey && TITLES[viewKey] ? viewKey : dashboardKey);
+  const headerText = labelOf(headerKey, lang);
+  if (headerText) {
+    for (const root of deep('hui-root')) {
+      const title = root.shadowRoot?.querySelector('.main-title');
+      if (title && setText(title, headerText)) changed = true;
+    }
   }
   return changed;
 };
