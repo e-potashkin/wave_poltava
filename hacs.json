@@ -1,0 +1,7 @@
+{
+  "name": "Wave Poltava",
+  "content_in_root": false,
+  "render_readme": true,
+  "country": "UA",
+  "homeassistant": "2024.7.0"
+}

@@ -1,0 +1,13 @@
+{
+  "domain": "wave_poltava",
+  "name": "Wave Poltava",
+  "codeowners": ["@e-potashkin"],
+  "config_flow": true,
+  "dependencies": ["http", "frontend"],
+  "documentation": "https://github.com/e-potashkin/wave_poltava",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/e-potashkin/wave_poltava/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

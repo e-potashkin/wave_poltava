@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wave Poltava",
+        "description": "Adds the Poltava air-raid monitor. The feed, the wave and the dashboard card are included."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Wave Poltava is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Wave Poltava options",
+        "description": "The release delay is the silence after the last message that ends a wave.",
+        "data": {
+          "release_after_minutes": "Release after, minutes"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "wave": {"name": "Air wave"},
+      "local": {"name": "Air wave local"},
+      "started": {"name": "Air wave started"},
+      "ended": {"name": "Air wave ended"},
+      "duration": {"name": "Air wave duration"},
+      "label": {"name": "Air wave label"},
+      "feed": {"name": "Monitoring Poltavshchina text"}
+    },
+    "binary_sensor": {
+      "alert": {"name": "Air threat local alert"}
+    }
+  }
+}

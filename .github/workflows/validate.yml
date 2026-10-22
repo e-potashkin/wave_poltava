@@ -1,0 +1,29 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  hassfest:
+    name: hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  tests:
+    name: offline tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: run every test file
+        run: |
+          set -e
+          for f in tests/test_*.py; do
+            echo "== $f"
+            python3 "$f"
+          done
