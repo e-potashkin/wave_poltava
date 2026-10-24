@@ -156,6 +156,62 @@ def main():
     check("the event type is kept", attrs["last_event_type"], "drone")
     check("the wave record is kept", attrs["wave"]["started_at"], (T0 + timedelta(minutes=20)).isoformat())
 
+    print("== a completed wave survives a restart, and the next save keeps it ==")
+    # The store held a wave that had already ended. The old restore refused it
+    # (Wave.started is False once ended_at is set), and the first save after
+    # startup then wrote an empty record over it.
+    started = T0 - timedelta(hours=2)
+    ended_at = T0 - timedelta(hours=1, minutes=18)
+    saved = {
+        "last_post_id": 59102,
+        "last_message": "м. Полтава та околиці Відбій тривоги по БпЛА",
+        "last_post_at": ended_at.isoformat(),
+        "wave_id": "20261023T224806Z",
+        "wave": {
+            "started_at": started.isoformat(),
+            "last_message_at": (started + timedelta(minutes=12)).isoformat(),
+            "ended_at": ended_at.isoformat(),
+            "message_count": 3,
+            "last_message": "м. Полтава та околиці Відбій тривоги по БпЛА",
+            "last_area": "м. Полтава",
+            "last_danger": "drone",
+            "last_source": "https://telegram.me/s/monitoringplt",
+            "last_event_type": "drone",
+            "areas": [],
+            "cleared": ["poltava_city"],
+            "last_kind": "end",
+        },
+        "waves_today": 1,
+        "messages_today": 3,
+        "day": T0.date().isoformat(),
+        "local": {
+            "last_at": None,
+            "cleared_at": None,
+            "started_at": None,
+            "message": None,
+            "kind": None,
+        },
+    }
+    restarted = WavePoltavaCoordinator(Hass(), Entry())
+    restarted._store.data = saved
+    restarted._restore(saved)
+    check("the completed wave is restored", restarted.tracker.wave.started_at, started)
+    check("it is idle", restarted.active, False)
+    check("the restart marker is set", restarted.restored, True)
+    restored_attrs = restarted.common_attributes()
+    check("the start is shown", restored_attrs["started_at"] is not None, True)
+    check("the end is shown", restored_attrs["ended_at"] is not None, True)
+    check("the length is shown", restored_attrs["duration_minutes"], 42.0)
+    check("the message count is shown", restored_attrs["message_count"], 3)
+    check("the last message is shown", restored_attrs["last_message"],
+          "м. Полтава та околиці Відбій тривоги по БпЛА")
+    asyncio.run(restarted._publish())
+    check("the next save keeps the start", restarted._store.data["wave"]["started_at"],
+          started.isoformat())
+    check("the next save keeps the end", restarted._store.data["wave"]["ended_at"],
+          ended_at.isoformat())
+    check("the next save keeps the messages", restarted._store.data["wave"]["message_count"], 3)
+
     print()
     if FAILS:
         print("FAILED:", len(FAILS))

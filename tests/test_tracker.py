@@ -129,6 +129,38 @@ check("accepted 45", t6.release_after_minutes, 45)
 t6.set_release_after(0)
 check("rejected 0", t6.release_after_minutes, 45)
 
+print("== 10b. a completed wave survives a restart ==")
+# A finished wave is display-only, so it cannot resurrect an alert. Its whole
+# record is what the dashboard showed, and a restart must keep it. The old
+# restore refused it because Wave.started was False once ended_at was set, and
+# the next save then wrote an empty wave over the stored one.
+ended = {
+    "started_at": (T0 + timedelta(hours=6)).isoformat(),
+    "last_message_at": (T0 + timedelta(hours=6, minutes=4)).isoformat(),
+    "ended_at": (T0 + timedelta(hours=6, minutes=42)).isoformat(),
+    "message_count": 4,
+    "last_message": "м. Полтава та околиці Відбій тривоги по БпЛА",
+    "last_area": "м. Полтава",
+    "last_danger": "drone",
+    "last_source": "https://telegram.me/s/monitoringplt",
+    "last_event_type": "drone",
+    "areas": [],
+    "cleared": ["poltava_city"],
+    "last_kind": "end",
+}
+t7 = tracker()
+check("completed wave restored", t7.restore(ended, T0 + timedelta(days=3)), True)
+s7 = snap(t7, T0 + timedelta(days=3))
+check("it is not active", s7.active, False)
+check("start kept", t7.wave.started_at, T0 + timedelta(hours=6))
+check("end kept", t7.wave.ended_at, T0 + timedelta(hours=6, minutes=42))
+check("length kept", t7.duration_minutes(T0 + timedelta(days=3)), 42.0)
+check("message count kept", t7.wave.message_count, 4)
+check("last message kept", t7.wave.last_message,
+      "м. Полтава та околиці Відбій тривоги по БпЛА")
+check("the reason names the ended wave", s7.reason, "every district is clear")
+check("restored flag shown once", s7.restored, True)
+
 print("")
 if FAILS:
     print("FAILURES: %d" % len(FAILS))

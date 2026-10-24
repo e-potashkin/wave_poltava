@@ -20,7 +20,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-# A restored wave with no message for longer than this is stale, not resumed.
+# An OPEN wave with no message for longer than this is stale, not resumed.
+# A wave that had already ended is display-only and has no such limit: a
+# restart must not erase the start, end, length and message of the last wave.
 MAX_RESTORE_HOURS = 24
 
 
@@ -504,9 +506,18 @@ class WaveTracker:
     def restore(self, saved: dict | None, now: datetime) -> bool:
         """Restore a saved wave. Return True when it is resumed or shown.
 
-        A wave with no message for longer than the release delay is already over.
-        It is kept for display, with its real end time, and it is not
-        resumed, so a restart never resurrects an old alert.
+        An OPEN wave with no message for longer than the release delay is
+        already over. It is closed at its real deadline and kept for display,
+        so a restart never resurrects an old alert. An open wave older than
+        MAX_RESTORE_HOURS is dropped.
+
+        A wave that had ALREADY ended before the restart is restored exactly as
+        it was written. It is display-only (`Wave.started` is False), so it
+        cannot resurrect an alert. It has no age limit for that reason: the
+        dashboard and the timestamp sensors show the last wave, and a restart
+        must not erase its start, end, length and messages. Without this, the
+        next save wrote an empty record over the stored wave (Eugene,
+        2026-10-24).
         """
         if not saved:
             return False
@@ -517,16 +528,22 @@ class WaveTracker:
                 self.uses_markers = True
             saved = saved["wave"]
         wave = Wave.from_dict(saved)
-        if not wave.started or wave.last_message_at is None:
-            return False
+        # A record with no start is an empty or broken save, not a wave.
         if wave.started_at is None:
+            return False
+        if wave.ended_at is not None:
+            # A finished wave is shown, never resumed. Its fields are the last
+            # thing a person read, so keep them all.
+            self.wave = wave
+            self.restored = True
+            return True
+        if wave.last_message_at is None:
             return False
         if now - wave.last_message_at > timedelta(hours=MAX_RESTORE_HOURS):
             return False
-        if wave.ended_at is None:
-            deadline = wave.last_message_at + timedelta(minutes=self.release_after_minutes)
-            if now >= deadline:
-                wave.ended_at = deadline
+        deadline = wave.last_message_at + timedelta(minutes=self.release_after_minutes)
+        if now >= deadline:
+            wave.ended_at = deadline
         self.wave = wave
         self.restored = True
         return True
