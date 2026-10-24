@@ -98,6 +98,8 @@ def main():
     check("a quiet gap then a message opens a wave", snap(tracker, T0 + timedelta(minutes=40)).active, True)
     check("closed after 30 min of silence",
           snap(tracker, T0 + timedelta(minutes=71)).active, False)
+    check("ended at the silence deadline", tracker.wave.ended_at,
+          T0 + timedelta(minutes=70))
 
     print()
     if FAILS:

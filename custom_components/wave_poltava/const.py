@@ -6,7 +6,7 @@ from typing import Final
 
 DOMAIN: Final = "wave_poltava"
 NAME: Final = "Wave Poltava"
-VERSION: Final = "1.0.11"
+VERSION: Final = "1.0.12"
 LOGGER_NAME: Final = f"custom_components.{DOMAIN}"
 
 PLATFORMS: Final = ["sensor", "binary_sensor"]

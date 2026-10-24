@@ -428,7 +428,14 @@ class WaveTracker:
                     # grows: a 24-hour replay of the real channel produced ONE wave
                     # that named 17 districts and never closed, because several
                     # districts never get an explicit all-clear.
-                    wave.ended_at = self.last_event_at or now
+                    #
+                    # The end is the DEADLINE, not the last message: the wave was
+                    # still active through the release delay (`now < deadline`
+                    # above), so using `last_event_at` gave it a zero length
+                    # (measured 2026-10-24: 01:48:06 -> 01:48:06 instead of
+                    # 02:18:06). The non-marker branch below and `restore()` both
+                    # already end at the deadline.
+                    wave.ended_at = deadline
                     wave.cleared.extend(
                         name for name in wave.areas if name not in wave.cleared
                     )
