@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Final
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -27,6 +27,10 @@ from .const import (
 )
 from .coordinator import WavePoltavaCoordinator
 from .entity import WaveEntity
+
+# Home Assistant fails a state longer than this: the entity reads `unknown`
+# and the core logs an ERROR on every refresh.
+MAX_STATE_LENGTH: Final = 255
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
@@ -247,6 +251,11 @@ class FeedSensor(WaveSensorBase):
 
     The all-clear automation quotes this sensor, so it keeps the id the old
     rest sensor had: `sensor.monitoring_poltavshchina_text`.
+
+    Home Assistant refuses a state longer than 255 characters: it answers
+    `unknown` and writes an ERROR on every coordinator refresh. A post that
+    carries an all-clear plus a donation appeal is that long, so the state is
+    cut at the limit and the whole post moves to the `text` attribute.
     """
 
     _attr_icon = "mdi:bullhorn-outline"
@@ -259,8 +268,10 @@ class FeedSensor(WaveSensorBase):
 
     @property
     def native_value(self) -> str | None:
-        """Return the newest post text."""
-        return self.coordinator.last_message or None
+        """Return the newest post text, cut to the state limit."""
+        if not self.coordinator.last_message:
+            return None
+        return self.coordinator.last_message[:MAX_STATE_LENGTH]
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -275,5 +286,7 @@ class FeedSensor(WaveSensorBase):
             "feed_ok": self.coordinator.last_fetch_ok,
             "feed_error": self.coordinator.last_error,
             "source": "https://telegram.me/s/monitoringplt",
+            # The state is cut at 255 characters; this holds the whole post.
+            "text": self.coordinator.last_message,
         }
 
